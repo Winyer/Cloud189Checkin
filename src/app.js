@@ -15,18 +15,18 @@ sdkLogger.configure({
   isDebugEnabled: process.env.CLOUD189_VERBOSE === "1",
 });
 
-// 涓汉浠诲姟绛惧埌
+// 个人任务签到
 const doUserTask = async (cloudClient, logger) => {
   const result = await cloudClient.userSign()
   const netdiskBonus = result.isSign? 0: result.netdiskBonus
-  logger.info(`涓汉绛惧埌浠诲姟: 鑾峰緱 ${netdiskBonus}M 绌洪棿`);
+  logger.info(`个人签到任务: 获得 ${netdiskBonus}M 空间`);
 };
 
 const run = async (userName, password, userSizeInfoMap, logger) => {
   if (userName && password) {
     const before = Date.now();
     try {
-      logger.log("寮€濮嬫墽琛�");
+      logger.log("开始执行");
       const cloudClient = new CloudClient({
         username: userName,
         password,
@@ -41,25 +41,25 @@ const run = async (userName, password, userSizeInfoMap, logger) => {
       await Promise.all([doUserTask(cloudClient, logger)]);
     } catch (e) {
       if (e.response) {
-        logger.log(`璇锋眰澶辫触: ${e.response.statusCode}, ${e.response.body}`);
+        logger.log(`请求失败: ${e.response.statusCode}, ${e.response.body}`);
       } else {
         logger.error(e);
       }
       if (e.code === "ECONNRESET" || e.code === "ETIMEDOUT") {
-        logger.error("璇锋眰瓒呮椂");
+        logger.error("请求超时");
         throw e;
       }
     } finally {
       logger.log(
-        `鎵ц瀹屾瘯, 鑰楁椂 ${((Date.now() - before) / 1000).toFixed(2)} 绉抈
+        `执行完毕, 耗时 ${((Date.now() - before) / 1000).toFixed(2)} 秒`
       );
     }
   }
 };
 
-// 寮€濮嬫墽琛岀▼搴�
+// 开始执行程序
 async function main() {
-  //  鐢ㄤ簬缁熻瀹為檯瀹归噺鍙樺寲
+  //  用于统计实际容量变化
   const userSizeInfoMap = new Map();
   for (let index = 0; index < accounts.length; index++) {
     const account = accounts[index];
@@ -70,14 +70,14 @@ async function main() {
     await run(userName, password, userSizeInfoMap, logger);
   }
 
-  //鏁版嵁姹囨€�
+  //数据汇总
   for (const [
     userName,
     { cloudClient, userSizeInfo, logger },
   ] of userSizeInfoMap) {
     const afterUserSizeInfo = await cloudClient.getUserSizeInfo();
     logger.log(
-      `涓汉瀹归噺锛氣瑔锔�  ${(
+      `个人容量：⬆️  ${(
         (afterUserSizeInfo.cloudCapacityInfo.totalSize -
           userSizeInfo.cloudCapacityInfo.totalSize) /
         1024 /
@@ -88,7 +88,7 @@ async function main() {
         1024 /
         1024
       ).toFixed(2)}G`,
-      `瀹跺涵瀹归噺锛氣瑔锔�  ${(
+      `家庭容量：⬆️  ${(
         (afterUserSizeInfo.familyCapacityInfo.totalSize -
           userSizeInfo.familyCapacityInfo.totalSize) /
         1024 /
@@ -106,13 +106,13 @@ async function main() {
 (async () => {
   try {
     await main();
-    //绛夊緟鏃ュ織鏂囦欢鍐欏叆
+    //等待日志文件写入
     await delay(1000);
   } finally {
     const logs = catLogs();
     const events = recording.replay();
     const content = events.map((e) => `${e.data.join("")}`).join("  \n");
-    push("澶╃考浜戠洏鑷姩绛惧埌浠诲姟", logs + content);
+    push("天翼云盘自动签到任务", logs + content);
     recording.erase();
     cleanLogs();
   }
